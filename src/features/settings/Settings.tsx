@@ -24,18 +24,18 @@ export default function Settings() {
     <>
       <PageHead kicker="06 · Settings" title="Settings" />
       <div className="chips" style={{ marginBottom: 24 }}>
-        {tabs.map((t) => <NavLink key={t.to} to={t.to} className={({ isActive }) => `chip ${isActive ? 'on' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>{t.label}</NavLink>)}
+        {tabs.map((t) => <NavLink key={t.to} to={`/settings/${t.to}`} className={({ isActive }) => `chip ${isActive ? 'on' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>{t.label}</NavLink>)}
       </div>
       <div style={{ maxWidth: 760 }}>
         <Routes>
-          <Route index element={<Navigate to="me" replace />} />
+          <Route index element={<Navigate to="/settings/me" replace />} />
           <Route path="me" element={<Me />} />
           {can('admin') && <Route path="lab" element={<LabProfile />} />}
           {can('admin') && <Route path="staff" element={<Staff />} />}
           {can('inventory.write') && <Route path="lists" element={<Lists />} />}
           {can('blood.minimums') && <Route path="blood" element={<BloodMinimums />} />}
           {can('admin') && <Route path="audit" element={<Audit />} />}
-          <Route path="*" element={<Navigate to="me" replace />} />
+          <Route path="*" element={<Navigate to="/settings/me" replace />} />
         </Routes>
       </div>
     </>
