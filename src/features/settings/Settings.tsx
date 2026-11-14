@@ -6,7 +6,7 @@ import { supabase, q, friendlyError } from '../../lib/supabase'
 import { useSession } from '../../lib/session'
 import { useToast } from '../../lib/toast'
 import { useCategories, useLocations, usePeople, usePeopleMap, useSuppliers } from '../../lib/data'
-import type { Component, Role } from '../../lib/types'
+import type { Component, Profile, Role } from '../../lib/types'
 import { Avatar, Field, PageHead, Section, Seg, Sheet, SkeletonRows, Tag } from '../../components/ui'
 import { COMPONENTS, COMPONENT_LABEL, COMPONENT_SHORT, fmtDateTime, GROUPS, groupLabel, ROLE_LABEL } from '../../lib/format'
 
@@ -193,6 +193,7 @@ function Staff() {
   const { data: people, isLoading } = usePeople()
   const [add, setAdd] = useState(false)
   const [reset, setReset] = useState<{ id: string; name: string } | null>(null)
+  const [manage, setManage] = useState<Profile | null>(null)
   const [f, setF] = useState({ full_name: '', email: '', role: 'staff' as Role, job_title: '', password: genPassword() })
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null)
@@ -227,31 +228,36 @@ function Staff() {
 
   return (
     <>
-      <Section title="Staff accounts" count={people?.length} action={<button className="linkish" onClick={() => setAdd(true)}>+ Add staff</button>}>
+      <div className="spread" style={{ marginBottom: 12 }}>
+        <span className="label">Staff accounts · {String(people?.length ?? 0).padStart(2, '0')}</span>
+        <button className="btn primary sm" onClick={() => setAdd(true)}>+ Add staff</button>
+      </div>
+      <section className="section">
         {isLoading ? <SkeletonRows /> : (
-          <ul className="ledger">
+          <ul className="ledger" style={{ borderTop: '1px solid var(--ink)' }}>
             {people?.map((p) => (
-              <li key={p.id} className="row" style={{ gridTemplateColumns: '28px minmax(0,1fr) auto', opacity: p.is_active ? 1 : 0.55 }}>
-                <Avatar name={p.full_name} />
-                <span style={{ minWidth: 0 }}>
-                  <span className="main-line" style={{ display: 'block' }}>{p.full_name}{p.id === profile?.id ? ' (you)' : ''}{!p.is_active && <> <Tag>Deactivated</Tag></>}</span>
-                  <span className="sub-line" style={{ display: 'block' }}>{p.email}{p.job_title ? ` · ${p.job_title}` : ''}</span>
-                </span>
-                <span className="end">
-                  <select className="select" style={{ width: 'auto', minHeight: 36, padding: '4px 30px 4px 8px', fontSize: '0.85rem' }} value={p.role} aria-label={`Role for ${p.full_name}`}
+              <li key={p.id} className={`staff-row ${p.is_active ? '' : 'inactive'}`}>
+                <Avatar name={p.full_name} lg />
+                <div className="who">
+                  <div className="name">{p.full_name}{p.id === profile?.id && <span className="faint"> (you)</span>}</div>
+                  <div className="email">{p.email}</div>
+                  {(p.job_title || !p.is_active) && <div className="hstack" style={{ marginTop: 4, gap: 6 }}>
+                    {p.job_title && <span className="small muted">{p.job_title}</span>}
+                    {!p.is_active && <Tag tone="critical">Deactivated</Tag>}
+                  </div>}
+                </div>
+                <div className="staff-controls">
+                  <select className="select" value={p.role} aria-label={`Role for ${p.full_name}`} disabled={p.id === profile?.id && p.role === 'admin' && (people?.filter((x) => x.role === 'admin' && x.is_active).length ?? 0) < 2}
                     onChange={(e) => update(p.id, { role: e.target.value }, `${p.full_name}: ${ROLE_LABEL[e.target.value as Role]}`)}>
                     {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                   </select>
-                  {p.id !== profile?.id && <>
-                    <button className="btn sm" onClick={() => setReset({ id: p.id, name: p.email ?? p.full_name ?? '' })}>Reset password</button>
-                    <button className="btn sm ghost" onClick={() => update(p.id, { is_active: !p.is_active }, p.is_active ? 'Account deactivated' : 'Account reactivated')}>{p.is_active ? 'Deactivate' : 'Reactivate'}</button>
-                  </>}
-                </span>
+                  {p.id !== profile?.id && <button className="btn" onClick={() => setManage(p)}>Manage</button>}
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </Section>
+      </section>
       <div className="panel small">
         <b>Roles</b>
         <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
@@ -273,6 +279,24 @@ function Staff() {
         <Field label="Temporary password" htmlFor="s-p" hint="Share it privately. They can change it in Settings → Me.">
           <div className="hstack" style={{ flexWrap: 'nowrap' }}><input id="s-p" className="input mono" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /><button className="btn" type="button" onClick={() => setF({ ...f, password: genPassword() })}>New</button></div>
         </Field>
+      </Sheet>
+      <Sheet open={!!manage} onClose={() => setManage(null)} title={manage?.full_name ?? 'Manage'}>
+        {manage && <>
+          <p className="muted small" style={{ marginBottom: 16, overflowWrap: 'anywhere' }}>{manage.email} · {ROLE_LABEL[manage.role]}</p>
+          <div className="stack">
+            <div className="panel">
+              <b>Reset password</b>
+              <p className="small muted" style={{ margin: '4px 0 12px' }}>Creates a new temporary password. Their current one stops working.</p>
+              <button className="btn block" onClick={() => { setReset({ id: manage.id, name: manage.email ?? manage.full_name ?? '' }); setManage(null) }}>Reset password</button>
+            </div>
+            <div className="panel">
+              <b>{manage.is_active ? 'Deactivate account' : 'Reactivate account'}</b>
+              <p className="small muted" style={{ margin: '4px 0 12px' }}>{manage.is_active ? 'They can no longer sign in or see lab data. Their history is kept.' : 'They can sign in again with their existing password.'}</p>
+              <button className={`btn block ${manage.is_active ? 'danger' : 'primary'}`} onClick={async () => { await update(manage.id, { is_active: !manage.is_active }, manage.is_active ? 'Account deactivated' : 'Account reactivated'); setManage(null) }}>
+                {manage.is_active ? 'Deactivate' : 'Reactivate'}</button>
+            </div>
+          </div>
+        </>}
       </Sheet>
       <Sheet open={!!reset} onClose={() => setReset(null)} title="Reset password"
         footer={<><button className="btn" onClick={() => setReset(null)}>Cancel</button><button className="btn primary" disabled={busy} onClick={doReset}>Generate new password</button></>}>

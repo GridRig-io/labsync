@@ -177,7 +177,7 @@ export function Layout() {
   const code = lab?.short_code || 'LAB'
 
   return (
-    <div className="app">
+    <div className={`app ${loc.pathname.startsWith('/settings') ? 'no-fab' : ''}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="side-head">
           {logoUrl ? <img src={logoUrl} alt="" style={{ height: 32, width: 'auto', marginBottom: 8 }} /> : null}
